@@ -1,0 +1,420 @@
+import { useState } from "react";
+
+const FOODS = [
+  { name: "Chicken Breast (100g)", protein: 31, calories: 165, carbs: 0, fat: 3.6 },
+  { name: "Eggs (1 large)", protein: 6, calories: 72, carbs: 0.4, fat: 5 },
+  { name: "Greek Yogurt (1 cup)", protein: 20, calories: 130, carbs: 9, fat: 0.7 },
+  { name: "Protein Shake", protein: 25, calories: 150, carbs: 5, fat: 2 },
+  { name: "Salmon (100g)", protein: 25, calories: 208, carbs: 0, fat: 13 },
+  { name: "Tuna (100g)", protein: 30, calories: 132, carbs: 0, fat: 1 },
+  { name: "Cottage Cheese (1 cup)", protein: 28, calories: 206, carbs: 6, fat: 9 },
+  { name: "Ground Beef 90% (100g)", protein: 26, calories: 176, carbs: 0, fat: 10 },
+  { name: "Turkey Breast (100g)", protein: 29, calories: 135, carbs: 0, fat: 1 },
+  { name: "Whey Protein (1 scoop)", protein: 24, calories: 120, carbs: 3, fat: 2 },
+  { name: "Steak (100g)", protein: 27, calories: 271, carbs: 0, fat: 19 },
+  { name: "Shrimp (100g)", protein: 24, calories: 99, carbs: 0.2, fat: 0.3 },
+  { name: "Rice (1 cup cooked)", protein: 4, calories: 206, carbs: 45, fat: 0.4 },
+  { name: "Sweet Potato (medium)", protein: 2, calories: 103, carbs: 24, fat: 0.1 },
+  { name: "Oatmeal (1 cup cooked)", protein: 6, calories: 166, carbs: 28, fat: 3.6 },
+  { name: "Broccoli (1 cup)", protein: 2.6, calories: 55, carbs: 11, fat: 0.6 },
+  { name: "Almonds (1 oz)", protein: 6, calories: 164, carbs: 6, fat: 14 },
+  { name: "Milk (1 cup)", protein: 8, calories: 149, carbs: 12, fat: 8 },
+  { name: "Banana (medium)", protein: 1.3, calories: 105, carbs: 27, fat: 0.4 },
+  { name: "Bread (1 slice)", protein: 3.5, calories: 79, carbs: 15, fat: 1 },
+];
+
+const MacroBar = ({ label, current, goal, color }) => {
+  const pct = Math.min((current / goal) * 100, 100);
+  return (
+    <div className="mb-2">
+      <div className="flex justify-between text-xs mb-1">
+        <span className="font-semibold" style={{ color }}>{label}</span>
+        <span className="text-gray-400">{Math.round(current)}g / {goal}g</span>
+      </div>
+      <div className="w-full bg-gray-700 rounded-full h-2">
+        <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+};
+
+const CalBar = ({ current, goal }) => {
+  const pct = Math.min((current / goal) * 100, 100);
+  return (
+    <div className="mb-3">
+      <div className="flex justify-between text-xs mb-1">
+        <span className="font-bold text-white">Calories</span>
+        <span className="text-gray-400">{Math.round(current)} / {goal} kcal</span>
+      </div>
+      <div className="w-full bg-gray-700 rounded-full h-3">
+        <div className="h-3 rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: "linear-gradient(90deg,#f97316,#ef4444)" }} />
+      </div>
+    </div>
+  );
+};
+
+export default function App() {
+  const [tab, setTab] = useState("today");
+  const [weightLbs, setWeightLbs] = useState("");
+  const [weightKg, setWeightKg] = useState("");
+  const [goal, setGoal] = useState("build");
+  const [targets, setTargets] = useState(null);
+  const [log, setLog] = useState([]);
+  const [search, setSearch] = useState("");
+  const [qty, setQty] = useState(1);
+  const [selected, setSelected] = useState(null);
+  const [aiQ, setAiQ] = useState("");
+  const [aiA, setAiA] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [mealName, setMealName] = useState("Meal");
+  const [geminiKey, setGeminiKey] = useState("");
+  const [showKeyInput, setShowKeyInput] = useState(false);
+
+  const weight = weightLbs;
+
+  const handleLbs = v => {
+    setWeightLbs(v);
+    setWeightKg(v ? (parseFloat(v) / 2.20462).toFixed(1) : "");
+  };
+  const handleKg = v => {
+    setWeightKg(v);
+    setWeightLbs(v ? (parseFloat(v) * 2.20462).toFixed(1) : "");
+  };
+
+  const totals = log.reduce((a, i) => ({
+    protein: a.protein + i.protein,
+    calories: a.calories + i.calories,
+    carbs: a.carbs + i.carbs,
+    fat: a.fat + i.fat,
+  }), { protein: 0, calories: 0, carbs: 0, fat: 0 });
+
+  const calcTargets = () => {
+    const w = parseFloat(weightLbs);
+    if (!w) return;
+    const protein = goal === "build" ? w : goal === "maintain" ? Math.round(w * 0.8) : Math.round(w * 0.7);
+    const calories = goal === "build" ? Math.round(w * 18) : goal === "maintain" ? Math.round(w * 15) : Math.round(w * 12);
+    const carbs = Math.round((calories * 0.4) / 4);
+    const fat = Math.round((calories * 0.25) / 9);
+    setTargets({ protein, calories, carbs, fat });
+    setTab("today");
+  };
+
+  const addFood = () => {
+    if (!selected) return;
+    const f = FOODS.find(x => x.name === selected);
+    if (!f) return;
+    setLog(l => [...l, { ...f, protein: +(f.protein * qty).toFixed(1), calories: +(f.calories * qty).toFixed(0), carbs: +(f.carbs * qty).toFixed(1), fat: +(f.fat * qty).toFixed(1), id: Date.now(), meal: mealName }]);
+    setSelected(null); setQty(1); setSearch("");
+  };
+
+  const askAI = async () => {
+    if (!aiQ.trim()) return;
+    if (!geminiKey.trim()) { setShowKeyInput(true); return; }
+    setAiLoading(true); setAiA("");
+    const ctx = targets
+      ? `User: ${weightLbs}lbs (${weightKg}kg), goal: ${goal} muscle. Targets: ${targets.protein}g protein, ${targets.calories} cal, ${targets.carbs}g carbs, ${targets.fat}g fat. Today logged: ${totals.protein.toFixed(0)}g protein, ${totals.calories.toFixed(0)} cal.`
+      : "";
+    const systemPrompt = `You are a concise, practical nutrition coach specializing in muscle building for athletic men. ${ctx} Give short, direct, actionable answers. No fluff. Use bullet points when listing things. Max 150 words.`;
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey.trim()}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: "user", parts: [{ text: aiQ }] }]
+          })
+        }
+      );
+      const d = await res.json();
+      if (d.error) { setAiA(`❌ API Error: ${d.error.message}`); }
+      else { setAiA(d.candidates?.[0]?.content?.parts?.[0]?.text || "No response."); }
+    } catch (e) {
+      setAiA("Network error. Check your API key and try again.");
+    }
+    setAiLoading(false);
+  };
+
+  const filtered = FOODS.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+  const remaining = targets ? targets.protein - totals.protein : null;
+  const meals = [...new Set(log.map(i => i.meal))];
+  const TABS = ["today", "log", "targets", "coach"];
+
+  return (
+    <div style={{ background: "#0f172a", minHeight: "100vh", color: "white", fontFamily: "system-ui,sans-serif", maxWidth: 420, margin: "0 auto" }}>
+      {/* Header */}
+      <div style={{ background: "linear-gradient(135deg,#1e293b,#0f172a)", padding: "20px 16px 12px" }}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-white">💪 Nutrition Coach</h1>
+            <p className="text-xs text-gray-400">Your personal muscle-building guide</p>
+          </div>
+          {targets && (
+            <div className="text-right">
+              <div className="text-2xl font-bold text-orange-400">{Math.round(totals.protein)}g</div>
+              <div className="text-xs text-gray-400">of {targets.protein}g protein</div>
+            </div>
+          )}
+        </div>
+        {targets && (
+          <div className="mt-3">
+            <CalBar current={totals.calories} goal={targets.calories} />
+            <MacroBar label="Protein" current={totals.protein} goal={targets.protein} color="#f97316" />
+            <MacroBar label="Carbs" current={totals.carbs} goal={targets.carbs} color="#3b82f6" />
+            <MacroBar label="Fat" current={totals.fat} goal={targets.fat} color="#a855f7" />
+          </div>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-gray-700" style={{ background: "#1e293b" }}>
+        {TABS.map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className="flex-1 py-2 text-xs font-semibold capitalize transition-all"
+            style={{ color: tab === t ? "#f97316" : "#94a3b8", borderBottom: tab === t ? "2px solid #f97316" : "2px solid transparent" }}>
+            {t === "today" ? "📊 Today" : t === "log" ? "🍗 Log" : t === "targets" ? "⚙️ Setup" : "🤖 Coach"}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding: "16px", paddingBottom: 32 }}>
+
+        {/* TODAY */}
+        {tab === "today" && (
+          <div>
+            {!targets ? (
+              <div className="text-center py-8">
+                <div className="text-4xl mb-3">⚙️</div>
+                <p className="text-gray-400 text-sm mb-4">Set up your profile first to see your daily targets</p>
+                <button onClick={() => setTab("targets")} className="px-6 py-2 rounded-full text-sm font-bold" style={{ background: "#f97316" }}>Set Up Now</button>
+              </div>
+            ) : (
+              <div>
+                <div className="rounded-xl p-4 mb-4 text-center" style={{ background: remaining > 0 ? "#1e293b" : "#14532d" }}>
+                  {remaining > 0 ? (
+                    <><div className="text-3xl font-bold text-orange-400">{Math.round(remaining)}g</div><div className="text-sm text-gray-400">protein still needed today</div></>
+                  ) : (
+                    <><div className="text-3xl">✅</div><div className="text-sm text-green-400 font-bold">Protein goal reached!</div></>
+                  )}
+                </div>
+                {remaining > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 font-semibold mb-2 uppercase tracking-wide">Quick protein hits</p>
+                    <div className="flex flex-wrap gap-2">
+                      {[{ label: "Chicken 100g", p: 31 }, { label: "Protein Shake", p: 25 }, { label: "Tuna 100g", p: 30 }, { label: "Eggs x3", p: 18 }, { label: "Greek Yogurt", p: 20 }].map(s => (
+                        <button key={s.label} onClick={() => { setTab("log"); setSearch(s.label.split(" ")[0]); }}
+                          className="px-3 py-1 rounded-full text-xs font-semibold"
+                          style={{ background: "#1e3a5f", color: "#60a5fa" }}>
+                          {s.label} +{s.p}g
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {log.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-xs text-gray-400 font-semibold mb-2 uppercase tracking-wide">Today's meals</p>
+                    {meals.map(m => {
+                      const items = log.filter(i => i.meal === m);
+                      const mp = items.reduce((a, i) => a + i.protein, 0);
+                      const mc = items.reduce((a, i) => a + i.calories, 0);
+                      return (
+                        <div key={m} className="rounded-lg p-3 mb-2" style={{ background: "#1e293b" }}>
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-sm">{m}</span>
+                            <span className="text-xs text-orange-400">{mp.toFixed(0)}g protein · {mc.toFixed(0)} cal</span>
+                          </div>
+                          {items.map(i => (
+                            <div key={i.id} className="text-xs text-gray-400 mt-1 flex justify-between">
+                              <span>{i.name}</span>
+                              <button onClick={() => setLog(l => l.filter(x => x.id !== i.id))} className="text-red-500 ml-2">✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* LOG */}
+        {tab === "log" && (
+          <div>
+            <p className="text-xs text-gray-400 font-semibold mb-3 uppercase tracking-wide">Add food to your log</p>
+            <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+              {["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"].map(m => (
+                <button key={m} onClick={() => setMealName(m)}
+                  className="px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
+                  style={{ background: mealName === m ? "#f97316" : "#1e293b", color: mealName === m ? "white" : "#94a3b8" }}>
+                  {m}
+                </button>
+              ))}
+            </div>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search food..."
+              className="w-full rounded-lg px-4 py-2 text-sm mb-3 outline-none"
+              style={{ background: "#1e293b", color: "white", border: "1px solid #334155" }} />
+            <div className="rounded-lg overflow-hidden mb-3" style={{ border: "1px solid #334155", maxHeight: 220, overflowY: "auto" }}>
+              {filtered.map(f => (
+                <button key={f.name} onClick={() => setSelected(f.name)}
+                  className="w-full text-left px-4 py-2 flex justify-between items-center text-sm transition-all"
+                  style={{ background: selected === f.name ? "#1e3a5f" : "transparent", borderBottom: "1px solid #1e293b" }}>
+                  <span style={{ color: selected === f.name ? "#60a5fa" : "white" }}>{f.name}</span>
+                  <span className="text-xs text-orange-400">{f.protein}g pro · {f.calories} cal</span>
+                </button>
+              ))}
+            </div>
+            {selected && (() => {
+              const f = FOODS.find(x => x.name === selected);
+              return f ? (
+                <div className="rounded-lg p-3 mb-3" style={{ background: "#1e293b" }}>
+                  <p className="text-sm font-semibold mb-2">{selected}</p>
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-xs text-gray-400">Servings:</span>
+                    <button onClick={() => setQty(q => Math.max(0.5, q - 0.5))} className="w-7 h-7 rounded-full text-white font-bold" style={{ background: "#334155" }}>−</button>
+                    <span className="font-bold text-white w-6 text-center">{qty}</span>
+                    <button onClick={() => setQty(q => q + 0.5)} className="w-7 h-7 rounded-full text-white font-bold" style={{ background: "#334155" }}>+</button>
+                  </div>
+                  <div className="flex gap-3 text-xs text-center mb-3">
+                    {[["Protein", (f.protein*qty).toFixed(1)+"g","#f97316"],["Cal",(f.calories*qty).toFixed(0),"#ef4444"],["Carbs",(f.carbs*qty).toFixed(1)+"g","#3b82f6"],["Fat",(f.fat*qty).toFixed(1)+"g","#a855f7"]].map(([l,v,c])=>(
+                      <div key={l} className="flex-1 rounded p-2" style={{ background: "#0f172a" }}>
+                        <div className="font-bold" style={{color:c}}>{v}</div>
+                        <div className="text-gray-400">{l}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={addFood} className="w-full py-2 rounded-lg text-sm font-bold" style={{ background: "#f97316" }}>Add to {mealName}</button>
+                </div>
+              ) : null;
+            })()}
+          </div>
+        )}
+
+        {/* SETUP */}
+        {tab === "targets" && (
+          <div>
+            <p className="text-xs text-gray-400 font-semibold mb-4 uppercase tracking-wide">Your profile</p>
+            <div className="mb-4">
+              <label className="text-sm text-gray-400 block mb-2">Body weight</label>
+              <div className="flex gap-3 items-end">
+                <div className="flex-1">
+                  <div className="text-xs text-gray-500 mb-1 text-center">KG</div>
+                  <input type="number" value={weightKg} onChange={e => handleKg(e.target.value)} placeholder="e.g. 80"
+                    className="w-full rounded-lg px-3 py-3 text-lg font-bold outline-none text-center"
+                    style={{ background: "#1e293b", color: "#60a5fa", border: "1px solid #3b82f6" }} />
+                </div>
+                <div className="pb-3 text-gray-500 font-bold text-lg">⇄</div>
+                <div className="flex-1">
+                  <div className="text-xs text-gray-500 mb-1 text-center">LBS</div>
+                  <input type="number" value={weightLbs} onChange={e => handleLbs(e.target.value)} placeholder="e.g. 175"
+                    className="w-full rounded-lg px-3 py-3 text-lg font-bold outline-none text-center"
+                    style={{ background: "#1e293b", color: "#f97316", border: "1px solid #f97316" }} />
+                </div>
+              </div>
+            </div>
+            <div className="mb-5">
+              <label className="text-sm text-gray-400 block mb-2">Your goal</label>
+              {[["build","💪 Build Muscle","Caloric surplus · Max protein"],["maintain","⚖️ Maintain","Recomp · Moderate protein"],["cut","🔥 Cut (lean out)","Caloric deficit · High protein"]].map(([v,l,d]) => (
+                <button key={v} onClick={() => setGoal(v)}
+                  className="w-full text-left rounded-lg p-3 mb-2 flex items-center gap-3 transition-all"
+                  style={{ background: goal===v?"#1e3a5f":"#1e293b", border:`1px solid ${goal===v?"#3b82f6":"#334155"}` }}>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold" style={{color:goal===v?"#60a5fa":"white"}}>{l}</div>
+                    <div className="text-xs text-gray-400">{d}</div>
+                  </div>
+                  {goal===v && <span className="text-blue-400">✓</span>}
+                </button>
+              ))}
+            </div>
+            <button onClick={calcTargets} disabled={!weightLbs}
+              className="w-full py-3 rounded-xl font-bold text-white transition-all"
+              style={{ background: weightLbs ? "#f97316" : "#374151" }}>
+              Calculate My Targets
+            </button>
+            {targets && (
+              <div className="mt-4 rounded-xl p-4" style={{ background: "#1e293b" }}>
+                <p className="text-xs text-gray-400 font-semibold mb-3 uppercase">Your daily targets</p>
+                {[["🟠 Protein",targets.protein+"g","1g per lb bodyweight"],["🔴 Calories",targets.calories+" kcal","Based on goal"],["🔵 Carbs",targets.carbs+"g","40% of calories"],["🟣 Fat",targets.fat+"g","25% of calories"]].map(([l,v,d])=>(
+                  <div key={l} className="flex justify-between items-center py-2" style={{borderBottom:"1px solid #334155"}}>
+                    <div><div className="text-sm font-semibold">{l}</div><div className="text-xs text-gray-400">{d}</div></div>
+                    <div className="text-lg font-bold text-white">{v}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* COACH */}
+        {tab === "coach" && (
+          <div>
+            {/* API Key banner */}
+            <div className="rounded-xl p-3 mb-4" style={{ background: geminiKey ? "#14532d" : "#1e293b", border: `1px solid ${geminiKey ? "#16a34a" : "#334155"}` }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold" style={{ color: geminiKey ? "#4ade80" : "#f97316" }}>
+                  {geminiKey ? "✅ Gemini API key set" : "🔑 Gemini API key required"}
+                </span>
+                <button onClick={() => setShowKeyInput(v => !v)} className="text-xs text-gray-400 underline">
+                  {geminiKey ? "change" : "set key"}
+                </button>
+              </div>
+              {!geminiKey && <p className="text-xs text-gray-400">Get a free key at <span className="text-blue-400">aistudio.google.com</span> → Get API Key. Use model: <span className="text-green-400">gemini-2.5-flash</span></p>}
+              {showKeyInput && (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="password"
+                    placeholder="Paste your Gemini API key..."
+                    onChange={e => setGeminiKey(e.target.value)}
+                    defaultValue={geminiKey}
+                    className="flex-1 rounded-lg px-3 py-2 text-xs outline-none"
+                    style={{ background: "#0f172a", color: "white", border: "1px solid #334155" }}
+                  />
+                  <button onClick={() => setShowKeyInput(false)} className="px-3 py-1 rounded-lg text-xs font-bold" style={{ background: "#f97316" }}>Save</button>
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-gray-400 font-semibold mb-3 uppercase tracking-wide">Ask your nutrition coach</p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {["What should I eat post-workout?","I'm short on protein, quick fixes?","Best high-protein breakfast ideas?","How do I hit 4000 calories clean?","Is it okay to skip a meal?"].map(q => (
+                <button key={q} onClick={() => setAiQ(q)}
+                  className="px-3 py-1 rounded-full text-xs"
+                  style={{ background: "#1e293b", color: "#94a3b8", border: "1px solid #334155" }}>
+                  {q}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 mb-3">
+              <input value={aiQ} onChange={e => setAiQ(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && askAI()}
+                placeholder="Ask anything about nutrition..."
+                className="flex-1 rounded-lg px-3 py-2 text-sm outline-none"
+                style={{ background: "#1e293b", color: "white", border: "1px solid #334155" }} />
+              <button onClick={askAI} disabled={aiLoading || !aiQ.trim()}
+                className="px-4 py-2 rounded-lg font-bold text-sm"
+                style={{ background: aiLoading ? "#374151" : "#f97316" }}>
+                {aiLoading ? "..." : "Ask"}
+              </button>
+            </div>
+            {aiLoading && <div className="rounded-xl p-4 text-center" style={{ background: "#1e293b" }}><div className="text-gray-400 text-sm">Coach is thinking...</div></div>}
+            {aiA && !aiLoading && (
+              <div className="rounded-xl p-4" style={{ background: "#1e293b", border: "1px solid #334155" }}>
+                <div className="text-xs text-green-400 font-semibold mb-2">🤖 Gemini Coach says:</div>
+                <div className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{aiA}</div>
+              </div>
+            )}
+            {targets && (
+              <div className="mt-4 rounded-xl p-3" style={{ background: "#0f172a", border: "1px solid #1e293b" }}>
+                <p className="text-xs text-gray-500 mb-1">Coach context loaded:</p>
+                <p className="text-xs text-gray-400">{weightLbs}lbs ({weightKg}kg) · Goal: {goal} · {targets.protein}g protein target · {totals.protein.toFixed(0)}g logged today</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
