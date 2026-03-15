@@ -1,420 +1,373 @@
-import { useState } from "react";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>💪 Nutrition Coach</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f172a;color:#fff;font-family:system-ui,-apple-system,sans-serif;min-height:100vh}
+  .app{max-width:420px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
 
-const FOODS = [
-  { name: "Chicken Breast (100g)", protein: 31, calories: 165, carbs: 0, fat: 3.6 },
-  { name: "Eggs (1 large)", protein: 6, calories: 72, carbs: 0.4, fat: 5 },
-  { name: "Greek Yogurt (1 cup)", protein: 20, calories: 130, carbs: 9, fat: 0.7 },
-  { name: "Protein Shake", protein: 25, calories: 150, carbs: 5, fat: 2 },
-  { name: "Salmon (100g)", protein: 25, calories: 208, carbs: 0, fat: 13 },
-  { name: "Tuna (100g)", protein: 30, calories: 132, carbs: 0, fat: 1 },
-  { name: "Cottage Cheese (1 cup)", protein: 28, calories: 206, carbs: 6, fat: 9 },
-  { name: "Ground Beef 90% (100g)", protein: 26, calories: 176, carbs: 0, fat: 10 },
-  { name: "Turkey Breast (100g)", protein: 29, calories: 135, carbs: 0, fat: 1 },
-  { name: "Whey Protein (1 scoop)", protein: 24, calories: 120, carbs: 3, fat: 2 },
-  { name: "Steak (100g)", protein: 27, calories: 271, carbs: 0, fat: 19 },
-  { name: "Shrimp (100g)", protein: 24, calories: 99, carbs: 0.2, fat: 0.3 },
-  { name: "Rice (1 cup cooked)", protein: 4, calories: 206, carbs: 45, fat: 0.4 },
-  { name: "Sweet Potato (medium)", protein: 2, calories: 103, carbs: 24, fat: 0.1 },
-  { name: "Oatmeal (1 cup cooked)", protein: 6, calories: 166, carbs: 28, fat: 3.6 },
-  { name: "Broccoli (1 cup)", protein: 2.6, calories: 55, carbs: 11, fat: 0.6 },
-  { name: "Almonds (1 oz)", protein: 6, calories: 164, carbs: 6, fat: 14 },
-  { name: "Milk (1 cup)", protein: 8, calories: 149, carbs: 12, fat: 8 },
-  { name: "Banana (medium)", protein: 1.3, calories: 105, carbs: 27, fat: 0.4 },
-  { name: "Bread (1 slice)", protein: 3.5, calories: 79, carbs: 15, fat: 1 },
-];
+  /* HEADER */
+  .header{background:linear-gradient(135deg,#1e293b,#0f172a);padding:20px 16px 14px}
+  .header-top{display:flex;justify-content:space-between;align-items:flex-start}
+  .header-title{font-size:1.2rem;font-weight:700}
+  .header-sub{font-size:.7rem;color:#94a3b8;margin-top:2px}
+  .header-protein{text-align:right}
+  .header-protein-num{font-size:1.6rem;font-weight:700;color:#f97316}
+  .header-protein-label{font-size:.7rem;color:#94a3b8}
+  .bars{margin-top:12px}
+  .bar-row{margin-bottom:8px}
+  .bar-meta{display:flex;justify-content:space-between;font-size:.7rem;margin-bottom:3px}
+  .bar-meta span:first-child{font-weight:600}
+  .bar-meta span:last-child{color:#94a3b8}
+  .bar-track{width:100%;background:#334155;border-radius:9999px;overflow:hidden}
+  .bar-fill{height:8px;border-radius:9999px;transition:width .4s}
+  .bar-cal .bar-fill{height:10px;background:linear-gradient(90deg,#f97316,#ef4444)}
 
-const MacroBar = ({ label, current, goal, color }) => {
-  const pct = Math.min((current / goal) * 100, 100);
-  return (
-    <div className="mb-2">
-      <div className="flex justify-between text-xs mb-1">
-        <span className="font-semibold" style={{ color }}>{label}</span>
-        <span className="text-gray-400">{Math.round(current)}g / {goal}g</span>
+  /* TABS */
+  .tabs{display:flex;background:#1e293b;border-bottom:1px solid #334155;flex-shrink:0}
+  .tab-btn{flex:1;padding:10px 4px;font-size:.7rem;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:#94a3b8;cursor:pointer;transition:color .2s}
+  .tab-btn.active{color:#f97316;border-bottom-color:#f97316}
+
+  /* CONTENT */
+  .content{padding:16px;flex:1;overflow-y:auto;padding-bottom:32px}
+
+  /* CARDS */
+  .card{background:#1e293b;border-radius:12px;padding:14px;margin-bottom:12px}
+  .card-dark{background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:12px;margin-top:12px}
+  .card-green{background:#14532d;border-radius:12px;padding:14px;margin-bottom:12px;text-align:center}
+  .card-center{text-align:center}
+
+  /* EMPTY STATE */
+  .empty{text-align:center;padding:40px 0}
+  .empty-icon{font-size:2.5rem;margin-bottom:12px}
+  .empty-text{color:#94a3b8;font-size:.85rem;margin-bottom:16px}
+
+  /* BUTTONS */
+  .btn-primary{background:#f97316;color:#fff;border:none;border-radius:12px;padding:12px;width:100%;font-size:.9rem;font-weight:700;cursor:pointer}
+  .btn-primary:disabled{background:#374151;cursor:default}
+  .btn-pill{background:#1e3a5f;color:#60a5fa;border:none;border-radius:9999px;padding:4px 10px;font-size:.7rem;font-weight:600;cursor:pointer;white-space:nowrap}
+  .btn-icon{background:#334155;color:#fff;border:none;border-radius:9999px;width:28px;height:28px;font-size:1rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .btn-remove{background:none;border:none;color:#ef4444;cursor:pointer;font-size:.8rem;margin-left:8px}
+  .btn-save{background:#f97316;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:.75rem;font-weight:700;cursor:pointer}
+
+  /* MEAL PILLS */
+  .meal-pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
+  .meal-pills::-webkit-scrollbar{display:none}
+  .meal-pill{background:#1e293b;color:#94a3b8;border:none;border-radius:9999px;padding:5px 10px;font-size:.7rem;font-weight:600;cursor:pointer;white-space:nowrap}
+  .meal-pill.active{background:#f97316;color:#fff}
+
+  /* SEARCH */
+  .search-input{width:100%;background:#1e293b;color:#fff;border:1px solid #334155;border-radius:8px;padding:8px 14px;font-size:.85rem;outline:none;margin-bottom:10px}
+  .food-list{border:1px solid #334155;border-radius:8px;overflow:hidden;max-height:220px;overflow-y:auto;margin-bottom:10px}
+  .food-item{width:100%;background:transparent;border:none;border-bottom:1px solid #1e293b;padding:9px 14px;display:flex;justify-content:space-between;align-items:center;font-size:.82rem;cursor:pointer;color:#fff;text-align:left}
+  .food-item:last-child{border-bottom:none}
+  .food-item.selected{background:#1e3a5f;color:#60a5fa}
+  .food-item-protein{font-size:.7rem;color:#f97316}
+
+  /* MACRO PILLS */
+  .macro-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+  .macro-box{background:#0f172a;border-radius:8px;padding:8px 4px;text-align:center}
+  .macro-box-val{font-size:.85rem;font-weight:700}
+  .macro-box-label{font-size:.65rem;color:#94a3b8;margin-top:2px}
+
+  /* SERVINGS */
+  .servings-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .servings-label{font-size:.75rem;color:#94a3b8}
+  .servings-val{font-weight:700;width:24px;text-align:center}
+
+  /* SETUP */
+  .weight-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:16px}
+  .weight-col{flex:1}
+  .weight-label{font-size:.7rem;color:#6b7280;text-align:center;margin-bottom:4px}
+  .weight-input{width:100%;background:#1e293b;border-radius:8px;padding:10px 8px;font-size:1.1rem;font-weight:700;text-align:center;outline:none;border:1px solid #334155}
+  .weight-input.kg{color:#60a5fa;border-color:#3b82f6}
+  .weight-input.lbs{color:#f97316;border-color:#f97316}
+  .weight-sep{font-size:1.2rem;color:#6b7280;font-weight:700;padding-bottom:10px}
+  .goal-btn{width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:8px;text-align:left}
+  .goal-btn.active{background:#1e3a5f;border-color:#3b82f6}
+  .goal-title{font-size:.85rem;font-weight:600;color:#fff}
+  .goal-btn.active .goal-title{color:#60a5fa}
+  .goal-sub{font-size:.7rem;color:#94a3b8;margin-top:2px}
+  .check{color:#60a5fa;font-size:.9rem}
+  .targets-list .row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #334155}
+  .targets-list .row:last-child{border-bottom:none}
+  .row-label{font-size:.82rem;font-weight:600}
+  .row-sub{font-size:.68rem;color:#94a3b8;margin-top:1px}
+  .row-val{font-size:1rem;font-weight:700}
+
+  /* API KEY */
+  .key-banner{border-radius:10px;padding:10px 12px;margin-bottom:14px}
+  .key-banner.no-key{background:#1e293b;border:1px solid #334155}
+  .key-banner.has-key{background:#14532d;border:1px solid #16a34a}
+  .key-banner-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  .key-status{font-size:.72rem;font-weight:700}
+  .key-status.ok{color:#4ade80}
+  .key-status.needed{color:#f97316}
+  .key-note{font-size:.7rem;color:#94a3b8}
+  .key-note span{color:#60a5fa}
+  .key-note .model{color:#4ade80}
+  .key-change{font-size:.7rem;color:#94a3b8;text-decoration:underline;background:none;border:none;cursor:pointer}
+  .key-input-row{display:flex;gap:6px;margin-top:8px}
+  .key-input{flex:1;background:#0f172a;color:#fff;border:1px solid #334155;border-radius:8px;padding:7px 10px;font-size:.75rem;outline:none}
+
+  /* QUICK PROMPTS */
+  .quick-prompts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  .quick-btn{background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:9999px;padding:5px 10px;font-size:.7rem;cursor:pointer}
+
+  /* COACH INPUT */
+  .coach-input-row{display:flex;gap:6px;margin-bottom:10px}
+  .coach-input{flex:1;background:#1e293b;color:#fff;border:1px solid #334155;border-radius:8px;padding:8px 12px;font-size:.82rem;outline:none}
+  .ask-btn{background:#f97316;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.82rem;font-weight:700;cursor:pointer}
+  .ask-btn:disabled{background:#374151;cursor:default}
+  .coach-response{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px}
+  .coach-label{font-size:.7rem;font-weight:700;color:#4ade80;margin-bottom:8px}
+  .coach-text{font-size:.82rem;color:#e2e8f0;line-height:1.6;white-space:pre-wrap}
+  .thinking{text-align:center;padding:14px;background:#1e293b;border-radius:12px;color:#94a3b8;font-size:.82rem}
+
+  /* PROTEIN CALLOUT */
+  .protein-callout{border-radius:12px;padding:14px;text-align:center;margin-bottom:14px}
+  .protein-callout .num{font-size:2rem;font-weight:700;color:#f97316}
+  .protein-callout .lbl{font-size:.8rem;color:#94a3b8;margin-top:2px}
+
+  /* MEAL SUMMARY */
+  .meal-card{background:#1e293b;border-radius:10px;padding:10px 12px;margin-bottom:8px}
+  .meal-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  .meal-card-name{font-size:.85rem;font-weight:600}
+  .meal-card-macros{font-size:.7rem;color:#f97316}
+  .meal-food{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;color:#94a3b8;margin-top:3px}
+
+  .section-label{font-size:.68rem;color:#94a3b8;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px}
+  .pills-wrap{display:flex;flex-wrap:wrap;gap:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <div class="header-title">💪 Nutrition Coach</div>
+        <div class="header-sub">Your personal muscle-building guide</div>
       </div>
-      <div className="w-full bg-gray-700 rounded-full h-2">
-        <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+      <div class="header-protein" id="headerProtein" style="display:none">
+        <div class="header-protein-num" id="headerProteinNum">0g</div>
+        <div class="header-protein-label" id="headerProteinLabel">of 0g protein</div>
       </div>
     </div>
-  );
-};
-
-const CalBar = ({ current, goal }) => {
-  const pct = Math.min((current / goal) * 100, 100);
-  return (
-    <div className="mb-3">
-      <div className="flex justify-between text-xs mb-1">
-        <span className="font-bold text-white">Calories</span>
-        <span className="text-gray-400">{Math.round(current)} / {goal} kcal</span>
+    <div class="bars" id="barsSection" style="display:none">
+      <div class="bar-row bar-cal">
+        <div class="bar-meta"><span style="color:#fff;font-weight:700">Calories</span><span id="calMeta">0 / 0 kcal</span></div>
+        <div class="bar-track"><div class="bar-fill" id="calBar" style="width:0%"></div></div>
       </div>
-      <div className="w-full bg-gray-700 rounded-full h-3">
-        <div className="h-3 rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: "linear-gradient(90deg,#f97316,#ef4444)" }} />
+      <div class="bar-row">
+        <div class="bar-meta"><span style="color:#f97316">Protein</span><span id="proteinMeta">0 / 0g</span></div>
+        <div class="bar-track"><div class="bar-fill" id="proteinBar" style="width:0%;background:#f97316"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-meta"><span style="color:#3b82f6">Carbs</span><span id="carbsMeta">0 / 0g</span></div>
+        <div class="bar-track"><div class="bar-fill" id="carbsBar" style="width:0%;background:#3b82f6"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-meta"><span style="color:#a855f7">Fat</span><span id="fatMeta">0 / 0g</span></div>
+        <div class="bar-track"><div class="bar-fill" id="fatBar" style="width:0%;background:#a855f7"></div></div>
       </div>
     </div>
-  );
-};
+  </div>
 
-export default function App() {
-  const [tab, setTab] = useState("today");
-  const [weightLbs, setWeightLbs] = useState("");
-  const [weightKg, setWeightKg] = useState("");
-  const [goal, setGoal] = useState("build");
-  const [targets, setTargets] = useState(null);
-  const [log, setLog] = useState([]);
-  const [search, setSearch] = useState("");
-  const [qty, setQty] = useState(1);
-  const [selected, setSelected] = useState(null);
-  const [aiQ, setAiQ] = useState("");
-  const [aiA, setAiA] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const [mealName, setMealName] = useState("Meal");
-  const [geminiKey, setGeminiKey] = useState("");
-  const [showKeyInput, setShowKeyInput] = useState(false);
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('today')">📊 Today</button>
+    <button class="tab-btn" onclick="switchTab('log')">🍗 Log</button>
+    <button class="tab-btn" onclick="switchTab('targets')">⚙️ Setup</button>
+    <button class="tab-btn" onclick="switchTab('coach')">🤖 Coach</button>
+  </div>
 
-  const weight = weightLbs;
-
-  const handleLbs = v => {
-    setWeightLbs(v);
-    setWeightKg(v ? (parseFloat(v) / 2.20462).toFixed(1) : "");
-  };
-  const handleKg = v => {
-    setWeightKg(v);
-    setWeightLbs(v ? (parseFloat(v) * 2.20462).toFixed(1) : "");
-  };
-
-  const totals = log.reduce((a, i) => ({
-    protein: a.protein + i.protein,
-    calories: a.calories + i.calories,
-    carbs: a.carbs + i.carbs,
-    fat: a.fat + i.fat,
-  }), { protein: 0, calories: 0, carbs: 0, fat: 0 });
-
-  const calcTargets = () => {
-    const w = parseFloat(weightLbs);
-    if (!w) return;
-    const protein = goal === "build" ? w : goal === "maintain" ? Math.round(w * 0.8) : Math.round(w * 0.7);
-    const calories = goal === "build" ? Math.round(w * 18) : goal === "maintain" ? Math.round(w * 15) : Math.round(w * 12);
-    const carbs = Math.round((calories * 0.4) / 4);
-    const fat = Math.round((calories * 0.25) / 9);
-    setTargets({ protein, calories, carbs, fat });
-    setTab("today");
-  };
-
-  const addFood = () => {
-    if (!selected) return;
-    const f = FOODS.find(x => x.name === selected);
-    if (!f) return;
-    setLog(l => [...l, { ...f, protein: +(f.protein * qty).toFixed(1), calories: +(f.calories * qty).toFixed(0), carbs: +(f.carbs * qty).toFixed(1), fat: +(f.fat * qty).toFixed(1), id: Date.now(), meal: mealName }]);
-    setSelected(null); setQty(1); setSearch("");
-  };
-
-  const askAI = async () => {
-    if (!aiQ.trim()) return;
-    if (!geminiKey.trim()) { setShowKeyInput(true); return; }
-    setAiLoading(true); setAiA("");
-    const ctx = targets
-      ? `User: ${weightLbs}lbs (${weightKg}kg), goal: ${goal} muscle. Targets: ${targets.protein}g protein, ${targets.calories} cal, ${targets.carbs}g carbs, ${targets.fat}g fat. Today logged: ${totals.protein.toFixed(0)}g protein, ${totals.calories.toFixed(0)} cal.`
-      : "";
-    const systemPrompt = `You are a concise, practical nutrition coach specializing in muscle building for athletic men. ${ctx} Give short, direct, actionable answers. No fluff. Use bullet points when listing things. Max 150 words.`;
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey.trim()}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemPrompt }] },
-            contents: [{ role: "user", parts: [{ text: aiQ }] }]
-          })
-        }
-      );
-      const d = await res.json();
-      if (d.error) { setAiA(`❌ API Error: ${d.error.message}`); }
-      else { setAiA(d.candidates?.[0]?.content?.parts?.[0]?.text || "No response."); }
-    } catch (e) {
-      setAiA("Network error. Check your API key and try again.");
-    }
-    setAiLoading(false);
-  };
-
-  const filtered = FOODS.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
-  const remaining = targets ? targets.protein - totals.protein : null;
-  const meals = [...new Set(log.map(i => i.meal))];
-  const TABS = ["today", "log", "targets", "coach"];
-
-  return (
-    <div style={{ background: "#0f172a", minHeight: "100vh", color: "white", fontFamily: "system-ui,sans-serif", maxWidth: 420, margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ background: "linear-gradient(135deg,#1e293b,#0f172a)", padding: "20px 16px 12px" }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-white">💪 Nutrition Coach</h1>
-            <p className="text-xs text-gray-400">Your personal muscle-building guide</p>
-          </div>
-          {targets && (
-            <div className="text-right">
-              <div className="text-2xl font-bold text-orange-400">{Math.round(totals.protein)}g</div>
-              <div className="text-xs text-gray-400">of {targets.protein}g protein</div>
-            </div>
-          )}
+  <div class="content">
+    <!-- TODAY -->
+    <div id="tab-today">
+      <div id="todayEmpty" class="empty">
+        <div class="empty-icon">⚙️</div>
+        <div class="empty-text">Set up your profile first to see your daily targets</div>
+        <button class="btn-primary" style="width:auto;padding:8px 24px;border-radius:9999px;font-size:.85rem" onclick="switchTab('targets')">Set Up Now</button>
+      </div>
+      <div id="todayContent" style="display:none">
+        <div class="protein-callout" id="proteinCallout">
+          <div class="num" id="proteinRemNum">0g</div>
+          <div class="lbl" id="proteinRemLbl">protein still needed today</div>
         </div>
-        {targets && (
-          <div className="mt-3">
-            <CalBar current={totals.calories} goal={targets.calories} />
-            <MacroBar label="Protein" current={totals.protein} goal={targets.protein} color="#f97316" />
-            <MacroBar label="Carbs" current={totals.carbs} goal={targets.carbs} color="#3b82f6" />
-            <MacroBar label="Fat" current={totals.fat} goal={targets.fat} color="#a855f7" />
+        <div id="quickHits" style="display:none">
+          <div class="section-label">Quick protein hits</div>
+          <div class="pills-wrap">
+            <button class="btn-pill" onclick="quickLog('Chicken')">Chicken 100g +31g</button>
+            <button class="btn-pill" onclick="quickLog('Protein Shake')">Protein Shake +25g</button>
+            <button class="btn-pill" onclick="quickLog('Tuna')">Tuna 100g +30g</button>
+            <button class="btn-pill" onclick="quickLog('Eggs')">Eggs x3 +18g</button>
+            <button class="btn-pill" onclick="quickLog('Greek')">Greek Yogurt +20g</button>
           </div>
-        )}
-      </div>
-
-      {/* Tabs */}
-      <div className="flex border-b border-gray-700" style={{ background: "#1e293b" }}>
-        {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className="flex-1 py-2 text-xs font-semibold capitalize transition-all"
-            style={{ color: tab === t ? "#f97316" : "#94a3b8", borderBottom: tab === t ? "2px solid #f97316" : "2px solid transparent" }}>
-            {t === "today" ? "📊 Today" : t === "log" ? "🍗 Log" : t === "targets" ? "⚙️ Setup" : "🤖 Coach"}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ padding: "16px", paddingBottom: 32 }}>
-
-        {/* TODAY */}
-        {tab === "today" && (
-          <div>
-            {!targets ? (
-              <div className="text-center py-8">
-                <div className="text-4xl mb-3">⚙️</div>
-                <p className="text-gray-400 text-sm mb-4">Set up your profile first to see your daily targets</p>
-                <button onClick={() => setTab("targets")} className="px-6 py-2 rounded-full text-sm font-bold" style={{ background: "#f97316" }}>Set Up Now</button>
-              </div>
-            ) : (
-              <div>
-                <div className="rounded-xl p-4 mb-4 text-center" style={{ background: remaining > 0 ? "#1e293b" : "#14532d" }}>
-                  {remaining > 0 ? (
-                    <><div className="text-3xl font-bold text-orange-400">{Math.round(remaining)}g</div><div className="text-sm text-gray-400">protein still needed today</div></>
-                  ) : (
-                    <><div className="text-3xl">✅</div><div className="text-sm text-green-400 font-bold">Protein goal reached!</div></>
-                  )}
-                </div>
-                {remaining > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-400 font-semibold mb-2 uppercase tracking-wide">Quick protein hits</p>
-                    <div className="flex flex-wrap gap-2">
-                      {[{ label: "Chicken 100g", p: 31 }, { label: "Protein Shake", p: 25 }, { label: "Tuna 100g", p: 30 }, { label: "Eggs x3", p: 18 }, { label: "Greek Yogurt", p: 20 }].map(s => (
-                        <button key={s.label} onClick={() => { setTab("log"); setSearch(s.label.split(" ")[0]); }}
-                          className="px-3 py-1 rounded-full text-xs font-semibold"
-                          style={{ background: "#1e3a5f", color: "#60a5fa" }}>
-                          {s.label} +{s.p}g
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {log.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-xs text-gray-400 font-semibold mb-2 uppercase tracking-wide">Today's meals</p>
-                    {meals.map(m => {
-                      const items = log.filter(i => i.meal === m);
-                      const mp = items.reduce((a, i) => a + i.protein, 0);
-                      const mc = items.reduce((a, i) => a + i.calories, 0);
-                      return (
-                        <div key={m} className="rounded-lg p-3 mb-2" style={{ background: "#1e293b" }}>
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold text-sm">{m}</span>
-                            <span className="text-xs text-orange-400">{mp.toFixed(0)}g protein · {mc.toFixed(0)} cal</span>
-                          </div>
-                          {items.map(i => (
-                            <div key={i.id} className="text-xs text-gray-400 mt-1 flex justify-between">
-                              <span>{i.name}</span>
-                              <button onClick={() => setLog(l => l.filter(x => x.id !== i.id))} className="text-red-500 ml-2">✕</button>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* LOG */}
-        {tab === "log" && (
-          <div>
-            <p className="text-xs text-gray-400 font-semibold mb-3 uppercase tracking-wide">Add food to your log</p>
-            <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
-              {["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"].map(m => (
-                <button key={m} onClick={() => setMealName(m)}
-                  className="px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
-                  style={{ background: mealName === m ? "#f97316" : "#1e293b", color: mealName === m ? "white" : "#94a3b8" }}>
-                  {m}
-                </button>
-              ))}
-            </div>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search food..."
-              className="w-full rounded-lg px-4 py-2 text-sm mb-3 outline-none"
-              style={{ background: "#1e293b", color: "white", border: "1px solid #334155" }} />
-            <div className="rounded-lg overflow-hidden mb-3" style={{ border: "1px solid #334155", maxHeight: 220, overflowY: "auto" }}>
-              {filtered.map(f => (
-                <button key={f.name} onClick={() => setSelected(f.name)}
-                  className="w-full text-left px-4 py-2 flex justify-between items-center text-sm transition-all"
-                  style={{ background: selected === f.name ? "#1e3a5f" : "transparent", borderBottom: "1px solid #1e293b" }}>
-                  <span style={{ color: selected === f.name ? "#60a5fa" : "white" }}>{f.name}</span>
-                  <span className="text-xs text-orange-400">{f.protein}g pro · {f.calories} cal</span>
-                </button>
-              ))}
-            </div>
-            {selected && (() => {
-              const f = FOODS.find(x => x.name === selected);
-              return f ? (
-                <div className="rounded-lg p-3 mb-3" style={{ background: "#1e293b" }}>
-                  <p className="text-sm font-semibold mb-2">{selected}</p>
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="text-xs text-gray-400">Servings:</span>
-                    <button onClick={() => setQty(q => Math.max(0.5, q - 0.5))} className="w-7 h-7 rounded-full text-white font-bold" style={{ background: "#334155" }}>−</button>
-                    <span className="font-bold text-white w-6 text-center">{qty}</span>
-                    <button onClick={() => setQty(q => q + 0.5)} className="w-7 h-7 rounded-full text-white font-bold" style={{ background: "#334155" }}>+</button>
-                  </div>
-                  <div className="flex gap-3 text-xs text-center mb-3">
-                    {[["Protein", (f.protein*qty).toFixed(1)+"g","#f97316"],["Cal",(f.calories*qty).toFixed(0),"#ef4444"],["Carbs",(f.carbs*qty).toFixed(1)+"g","#3b82f6"],["Fat",(f.fat*qty).toFixed(1)+"g","#a855f7"]].map(([l,v,c])=>(
-                      <div key={l} className="flex-1 rounded p-2" style={{ background: "#0f172a" }}>
-                        <div className="font-bold" style={{color:c}}>{v}</div>
-                        <div className="text-gray-400">{l}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <button onClick={addFood} className="w-full py-2 rounded-lg text-sm font-bold" style={{ background: "#f97316" }}>Add to {mealName}</button>
-                </div>
-              ) : null;
-            })()}
-          </div>
-        )}
-
-        {/* SETUP */}
-        {tab === "targets" && (
-          <div>
-            <p className="text-xs text-gray-400 font-semibold mb-4 uppercase tracking-wide">Your profile</p>
-            <div className="mb-4">
-              <label className="text-sm text-gray-400 block mb-2">Body weight</label>
-              <div className="flex gap-3 items-end">
-                <div className="flex-1">
-                  <div className="text-xs text-gray-500 mb-1 text-center">KG</div>
-                  <input type="number" value={weightKg} onChange={e => handleKg(e.target.value)} placeholder="e.g. 80"
-                    className="w-full rounded-lg px-3 py-3 text-lg font-bold outline-none text-center"
-                    style={{ background: "#1e293b", color: "#60a5fa", border: "1px solid #3b82f6" }} />
-                </div>
-                <div className="pb-3 text-gray-500 font-bold text-lg">⇄</div>
-                <div className="flex-1">
-                  <div className="text-xs text-gray-500 mb-1 text-center">LBS</div>
-                  <input type="number" value={weightLbs} onChange={e => handleLbs(e.target.value)} placeholder="e.g. 175"
-                    className="w-full rounded-lg px-3 py-3 text-lg font-bold outline-none text-center"
-                    style={{ background: "#1e293b", color: "#f97316", border: "1px solid #f97316" }} />
-                </div>
-              </div>
-            </div>
-            <div className="mb-5">
-              <label className="text-sm text-gray-400 block mb-2">Your goal</label>
-              {[["build","💪 Build Muscle","Caloric surplus · Max protein"],["maintain","⚖️ Maintain","Recomp · Moderate protein"],["cut","🔥 Cut (lean out)","Caloric deficit · High protein"]].map(([v,l,d]) => (
-                <button key={v} onClick={() => setGoal(v)}
-                  className="w-full text-left rounded-lg p-3 mb-2 flex items-center gap-3 transition-all"
-                  style={{ background: goal===v?"#1e3a5f":"#1e293b", border:`1px solid ${goal===v?"#3b82f6":"#334155"}` }}>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold" style={{color:goal===v?"#60a5fa":"white"}}>{l}</div>
-                    <div className="text-xs text-gray-400">{d}</div>
-                  </div>
-                  {goal===v && <span className="text-blue-400">✓</span>}
-                </button>
-              ))}
-            </div>
-            <button onClick={calcTargets} disabled={!weightLbs}
-              className="w-full py-3 rounded-xl font-bold text-white transition-all"
-              style={{ background: weightLbs ? "#f97316" : "#374151" }}>
-              Calculate My Targets
-            </button>
-            {targets && (
-              <div className="mt-4 rounded-xl p-4" style={{ background: "#1e293b" }}>
-                <p className="text-xs text-gray-400 font-semibold mb-3 uppercase">Your daily targets</p>
-                {[["🟠 Protein",targets.protein+"g","1g per lb bodyweight"],["🔴 Calories",targets.calories+" kcal","Based on goal"],["🔵 Carbs",targets.carbs+"g","40% of calories"],["🟣 Fat",targets.fat+"g","25% of calories"]].map(([l,v,d])=>(
-                  <div key={l} className="flex justify-between items-center py-2" style={{borderBottom:"1px solid #334155"}}>
-                    <div><div className="text-sm font-semibold">{l}</div><div className="text-xs text-gray-400">{d}</div></div>
-                    <div className="text-lg font-bold text-white">{v}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* COACH */}
-        {tab === "coach" && (
-          <div>
-            {/* API Key banner */}
-            <div className="rounded-xl p-3 mb-4" style={{ background: geminiKey ? "#14532d" : "#1e293b", border: `1px solid ${geminiKey ? "#16a34a" : "#334155"}` }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold" style={{ color: geminiKey ? "#4ade80" : "#f97316" }}>
-                  {geminiKey ? "✅ Gemini API key set" : "🔑 Gemini API key required"}
-                </span>
-                <button onClick={() => setShowKeyInput(v => !v)} className="text-xs text-gray-400 underline">
-                  {geminiKey ? "change" : "set key"}
-                </button>
-              </div>
-              {!geminiKey && <p className="text-xs text-gray-400">Get a free key at <span className="text-blue-400">aistudio.google.com</span> → Get API Key. Use model: <span className="text-green-400">gemini-2.5-flash</span></p>}
-              {showKeyInput && (
-                <div className="mt-2 flex gap-2">
-                  <input
-                    type="password"
-                    placeholder="Paste your Gemini API key..."
-                    onChange={e => setGeminiKey(e.target.value)}
-                    defaultValue={geminiKey}
-                    className="flex-1 rounded-lg px-3 py-2 text-xs outline-none"
-                    style={{ background: "#0f172a", color: "white", border: "1px solid #334155" }}
-                  />
-                  <button onClick={() => setShowKeyInput(false)} className="px-3 py-1 rounded-lg text-xs font-bold" style={{ background: "#f97316" }}>Save</button>
-                </div>
-              )}
-            </div>
-
-            <p className="text-xs text-gray-400 font-semibold mb-3 uppercase tracking-wide">Ask your nutrition coach</p>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {["What should I eat post-workout?","I'm short on protein, quick fixes?","Best high-protein breakfast ideas?","How do I hit 4000 calories clean?","Is it okay to skip a meal?"].map(q => (
-                <button key={q} onClick={() => setAiQ(q)}
-                  className="px-3 py-1 rounded-full text-xs"
-                  style={{ background: "#1e293b", color: "#94a3b8", border: "1px solid #334155" }}>
-                  {q}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2 mb-3">
-              <input value={aiQ} onChange={e => setAiQ(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && askAI()}
-                placeholder="Ask anything about nutrition..."
-                className="flex-1 rounded-lg px-3 py-2 text-sm outline-none"
-                style={{ background: "#1e293b", color: "white", border: "1px solid #334155" }} />
-              <button onClick={askAI} disabled={aiLoading || !aiQ.trim()}
-                className="px-4 py-2 rounded-lg font-bold text-sm"
-                style={{ background: aiLoading ? "#374151" : "#f97316" }}>
-                {aiLoading ? "..." : "Ask"}
-              </button>
-            </div>
-            {aiLoading && <div className="rounded-xl p-4 text-center" style={{ background: "#1e293b" }}><div className="text-gray-400 text-sm">Coach is thinking...</div></div>}
-            {aiA && !aiLoading && (
-              <div className="rounded-xl p-4" style={{ background: "#1e293b", border: "1px solid #334155" }}>
-                <div className="text-xs text-green-400 font-semibold mb-2">🤖 Gemini Coach says:</div>
-                <div className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{aiA}</div>
-              </div>
-            )}
-            {targets && (
-              <div className="mt-4 rounded-xl p-3" style={{ background: "#0f172a", border: "1px solid #1e293b" }}>
-                <p className="text-xs text-gray-500 mb-1">Coach context loaded:</p>
-                <p className="text-xs text-gray-400">{weightLbs}lbs ({weightKg}kg) · Goal: {goal} · {targets.protein}g protein target · {totals.protein.toFixed(0)}g logged today</p>
-              </div>
-            )}
-          </div>
-        )}
+        </div>
+        <div id="mealSummary" style="display:none;margin-top:16px">
+          <div class="section-label">Today's meals</div>
+          <div id="mealList"></div>
+        </div>
       </div>
     </div>
-  );
+
+    <!-- LOG -->
+    <div id="tab-log" style="display:none">
+      <div class="section-label">Add food to your log</div>
+      <div class="meal-pills" id="mealPills"></div>
+      <input class="search-input" id="foodSearch" placeholder="🔍 Search food..." oninput="renderFoodList()"/>
+      <div class="food-list" id="foodList"></div>
+      <div id="foodSelected" style="display:none"></div>
+    </div>
+
+    <!-- TARGETS / SETUP -->
+    <div id="tab-targets" style="display:none">
+      <div class="section-label">Your profile</div>
+      <div>
+        <div style="font-size:.82rem;color:#94a3b8;margin-bottom:8px">Body weight</div>
+        <div class="weight-row">
+          <div class="weight-col">
+            <div class="weight-label">KG</div>
+            <input class="weight-input kg" id="inputKg" type="number" placeholder="e.g. 80" oninput="handleKg(this.value)"/>
+          </div>
+          <div class="weight-sep">⇄</div>
+          <div class="weight-col">
+            <div class="weight-label">LBS</div>
+            <input class="weight-input lbs" id="inputLbs" type="number" placeholder="e.g. 175" oninput="handleLbs(this.value)"/>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="font-size:.82rem;color:#94a3b8;margin-bottom:8px">Your goal</div>
+        <button class="goal-btn active" id="goal-build" onclick="setGoal('build')">
+          <div><div class="goal-title">💪 Build Muscle</div><div class="goal-sub">Caloric surplus · Max protein</div></div>
+          <span class="check" id="check-build">✓</span>
+        </button>
+        <button class="goal-btn" id="goal-maintain" onclick="setGoal('maintain')">
+          <div><div class="goal-title">⚖️ Maintain</div><div class="goal-sub">Recomp · Moderate protein</div></div>
+          <span class="check" id="check-maintain" style="display:none">✓</span>
+        </button>
+        <button class="goal-btn" id="goal-cut" onclick="setGoal('cut')">
+          <div><div class="goal-title">🔥 Cut (lean out)</div><div class="goal-sub">Caloric deficit · High protein</div></div>
+          <span class="check" id="check-cut" id="check-cut" style="display:none">✓</span>
+        </button>
+      </div>
+      <button class="btn-primary" id="calcBtn" onclick="calcTargets()" disabled>Calculate My Targets</button>
+      <div id="targetsResult" style="display:none;margin-top:14px">
+        <div class="card">
+          <div class="section-label">Your daily targets</div>
+          <div class="targets-list" id="targetsList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COACH -->
+    <div id="tab-coach" style="display:none">
+      <div class="key-banner no-key" id="keyBanner">
+        <div class="key-banner-top">
+          <span class="key-status needed" id="keyStatus">🔑 Gemini API key required</span>
+          <button class="key-change" onclick="toggleKeyInput()">set key</button>
+        </div>
+        <div class="key-note" id="keyNote">Get a free key at <span>aistudio.google.com</span> → Get API Key. Model: <span class="model">gemini-2.5-flash</span></div>
+        <div class="key-input-row" id="keyInputRow" style="display:none">
+          <input class="key-input" id="keyInput" type="password" placeholder="Paste your Gemini API key..."/>
+          <button class="btn-save" onclick="saveKey()">Save</button>
+        </div>
+      </div>
+      <div class="section-label">Ask your nutrition coach</div>
+      <div class="quick-prompts">
+        <button class="quick-btn" onclick="setQ('What should I eat post-workout?')">What should I eat post-workout?</button>
+        <button class="quick-btn" onclick="setQ('I\'m short on protein, quick fixes?')">Short on protein, quick fixes?</button>
+        <button class="quick-btn" onclick="setQ('Best high-protein breakfast ideas?')">Best high-protein breakfast?</button>
+        <button class="quick-btn" onclick="setQ('How do I hit 4000 calories clean?')">How to hit 4000 calories?</button>
+        <button class="quick-btn" onclick="setQ('Is it okay to skip a meal?')">Is it okay to skip a meal?</button>
+      </div>
+      <div class="coach-input-row">
+        <input class="coach-input" id="coachInput" type="text" placeholder="Ask anything about nutrition..." onkeydown="if(event.key==='Enter')askAI()"/>
+        <button class="ask-btn" id="askBtn" onclick="askAI()">Ask</button>
+      </div>
+      <div id="coachResponse"></div>
+      <div id="coachContext" class="card-dark" style="display:none">
+        <div style="font-size:.68rem;color:#6b7280;margin-bottom:2px">Coach context loaded:</div>
+        <div style="font-size:.7rem;color:#94a3b8" id="coachContextText"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const FOODS = [
+  {name:"Chicken Breast (100g)",protein:31,calories:165,carbs:0,fat:3.6},
+  {name:"Eggs (1 large)",protein:6,calories:72,carbs:0.4,fat:5},
+  {name:"Greek Yogurt (1 cup)",protein:20,calories:130,carbs:9,fat:0.7},
+  {name:"Protein Shake",protein:25,calories:150,carbs:5,fat:2},
+  {name:"Salmon (100g)",protein:25,calories:208,carbs:0,fat:13},
+  {name:"Tuna (100g)",protein:30,calories:132,carbs:0,fat:1},
+  {name:"Cottage Cheese (1 cup)",protein:28,calories:206,carbs:6,fat:9},
+  {name:"Ground Beef 90% (100g)",protein:26,calories:176,carbs:0,fat:10},
+  {name:"Turkey Breast (100g)",protein:29,calories:135,carbs:0,fat:1},
+  {name:"Whey Protein (1 scoop)",protein:24,calories:120,carbs:3,fat:2},
+  {name:"Steak (100g)",protein:27,calories:271,carbs:0,fat:19},
+  {name:"Shrimp (100g)",protein:24,calories:99,carbs:0.2,fat:0.3},
+  {name:"Rice (1 cup cooked)",protein:4,calories:206,carbs:45,fat:0.4},
+  {name:"Sweet Potato (medium)",protein:2,calories:103,carbs:24,fat:0.1},
+  {name:"Oatmeal (1 cup cooked)",protein:6,calories:166,carbs:28,fat:3.6},
+  {name:"Broccoli (1 cup)",protein:2.6,calories:55,carbs:11,fat:0.6},
+  {name:"Almonds (1 oz)",protein:6,calories:164,carbs:6,fat:14},
+  {name:"Milk (1 cup)",protein:8,calories:149,carbs:12,fat:8},
+  {name:"Banana (medium)",protein:1.3,calories:105,carbs:27,fat:0.4},
+  {name:"Bread (1 slice)",protein:3.5,calories:79,carbs:15,fat:1},
+];
+const MEALS = ["Breakfast","Lunch","Dinner","Snack","Pre-workout","Post-workout"];
+
+let state = {
+  tab: "today",
+  weightLbs: "", weightKg: "",
+  goal: "build",
+  targets: null,
+  log: [],
+  selectedFood: null,
+  qty: 1,
+  mealName: "Breakfast",
+  geminiKey: "",
+  showKeyInput: false,
+};
+
+// ── TABS ──────────────────────────────────────────────
+function switchTab(t) {
+  state.tab = t;
+  ["today","log","targets","coach"].forEach(id => {
+    document.getElementById("tab-"+id).style.display = id===t ? "" : "none";
+  });
+  document.querySelectorAll(".tab-btn").forEach((b,i) => {
+    b.classList.toggle("active", ["today","log","targets","coach"][i]===t);
+  });
+  if(t==="log") renderFoodList();
+  if(t==="coach") renderCoachContext();
 }
+
+// ── WEIGHT ────────────────────────────────────────────
+function handleKg(v) {
+  state.weightKg = v;
+  state.weightLbs = v ? (parseFloat(v)*2.20462).toFixed(1) : "";
+  document.getElementById("inputLbs").value = state.weightLbs;
+  updateCalcBtn();
+}
+function handleLbs(v) {
+  state.weightLbs = v;
+  state.weightKg = v ? (parseFloat(v)/2.20462).toFixed(1) : "";
+  document.getElementById("inputKg").value = state.weightKg;
+  updateCalcBtn();
+}
+function updateCalcBtn() {
+  document.getElementById("calcBtn").disabled = !state.weightLbs;
+}
+
+// ── GOAL ──────────────────────────────────────────────
+function setGoal(g) {
+  state.goal = g;
+  ["build","maintain","cut"].forEach(id => {
+    document.getElementById("goal-"+id).classList.toggle("active", id===g);
+    document.getElementById("check-"+id).st
