@@ -262,7 +262,7 @@ body{background:#0f172a;color:#fff;font-family:system-ui,-apple-system,sans-seri
 
 <script>
 // ── CONFIG ────────────────────────────────────────────
-var GEMINI_WORKER_URL = "https://twilight-dew-e570.jacobdsiler.workers.dev";
+var GEMINI_WORKER_URL = "https://twilight-dew-e570.jacobdsiler.workers.dev/gemini";
 
 // ── STATE ─────────────────────────────────────────────
 var S = {
@@ -480,12 +480,12 @@ async function triggerSearch(q){
   try {
     var prompt='Return nutrition facts per 100g for: "'+q+'". Respond ONLY with a JSON array of 1-3 objects, each with fields: name, protein, calories, carbs, fat (all numbers). No markdown, no explanation.';
     var r=await fetch(GEMINI_WORKER_URL,
-      {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}]})});
+      {method:"POST",headers:{"Content-Type":"application/json"},
+       body:JSON.stringify({prompt:prompt})});
     var d=await r.json();
-    var text=(d.candidates&&d.candidates[0]&&d.candidates[0].content&&d.candidates[0].content.parts&&d.candidates[0].content.parts[0]&&d.candidates[0].content.parts[0].text)||"";
-    text=text.replace(/```json|```/g,"").trim();
-    var items=JSON.parse(text);
-    var valid=[];
+    if(d.error){ throw new Error(d.error); }
+    var text=d.text.replace(/```json|```/g,"").trim();
+    var items=JSON.parse(text);    var valid=[];
     for(var i=0;i<items.length;i++){ if(items[i].name&&(items[i].calories>0||items[i].protein>0)) valid.push(Object.assign({},items[i],{source:"Gemini AI"})); }
     if(valid.length){ renderFoodList(valid); setSearchStatus("",""); return; }
   } catch(e){}
@@ -590,12 +590,13 @@ async function askAI(){
   var sys="You are a concise, practical nutrition coach for athletic muscle-building men. "+ctx+" Short, direct, actionable answers. Bullet points when listing. Max 150 words.";
   try {
     var r=await fetch(GEMINI_WORKER_URL,
-      {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system_instruction:{parts:[{text:sys}]},contents:[{role:"user",parts:[{text:q}]}]})});
+      {method:"POST",headers:{"Content-Type":"application/json"},
+       body:JSON.stringify({contents:[{role:"user",parts:[{text:q}]}],systemInstruction:sys})});
     var d=await r.json();
     if(d.error){
-      el("coachResponse").innerHTML='<div class="coach-response-box"><div class="coach-label" style="color:#ef4444">❌ Error</div><div class="coach-text">'+d.error.message+'</div></div>';
+      el("coachResponse").innerHTML='<div class="coach-response-box"><div class="coach-label" style="color:#ef4444">❌ Error</div><div class="coach-text">'+d.error+'</div></div>';
     } else {
-      var text=(d.candidates&&d.candidates[0]&&d.candidates[0].content&&d.candidates[0].content.parts&&d.candidates[0].content.parts[0]&&d.candidates[0].content.parts[0].text)||"No response.";
+      var text=d.text||"No response.";
       el("coachResponse").innerHTML='<div class="coach-response-box"><div class="coach-label">🤖 Coach says:</div><div class="coach-text">'+text+'</div></div>';
     }
   } catch(e){
