@@ -237,7 +237,7 @@ body{background:#0f172a;color:#fff;font-family:system-ui,-apple-system,sans-seri
         <div id="scanUploadError" style="display:none;background:#450a0a;color:#f87171;border-radius:8px;padding:10px 12px;font-size:.78rem;margin-bottom:10px"></div>
         <button class="btn-primary" id="scanAnalyzeBtn" onclick="runScan()" disabled>✨ Analyse Food</button>
         <div style="margin-top:10px;background:#1e293b;border-radius:10px;padding:10px 12px;font-size:.72rem;color:#94a3b8;line-height:1.6">
-          💡 Works best with <strong style="color:#cbd5e1">clear, well-lit photos</strong> of plated meals, packaged food, or ingredients. Estimates may vary — always review before saving.
+          💡 <strong style="color:#fbbf24">Tip — use any coin as a scale reference.</strong> Place it next to your food before shooting. Fueld recognises coins from 20+ countries — euro, dollar, pound, yen, rupee, krona and more. The AI will name the coin it spotted and use its known size to estimate portions far more accurately. No coin? A fork or credit card also helps.
         </div>
       </div>
 
@@ -663,7 +663,41 @@ function onScanFileChosen(e){
 async function runScan(){
   if(!S.scanImageBase64){ return; }
   showScanStep("thinking");
-  var prompt='Analyse this food photo and identify every food item visible. For each item, estimate the nutritional content for the visible portion/serving size shown. Return ONLY a valid JSON array — no markdown, no explanation.\n\nEach object must have exactly these fields:\n{"name":"Food name with estimated portion (e.g. Grilled chicken breast ~150g)","protein":number,"calories":number,"carbs":number,"fat":number,"confidence":"high"|"medium"|"low"}\n\nRules:\n- Be specific with names and include estimated portion size in brackets\n- confidence: high=packaged food with clear label, medium=recognisable dish, low=hard to identify or estimate\n- Round all numbers to 1 decimal place\n- If you cannot identify any food, return an empty array []\n- Return ONLY the JSON array, nothing else.';
+  var coinRef='COIN SIZE REFERENCE (diameter in mm) — use whichever coin is visible:\n'
+    +'Eurozone: 1c=16.25 2c=18.75 5c=21.25 10c=19.75 20c=22.25 50c=24.25 €1=23.25 €2=25.75\n'
+    +'UK: 1p=20.3 2p=25.9 5p=18.0 10p=24.5 20p=21.4 50p=27.3 £1=23.43 £2=28.4\n'
+    +'USA: penny=19.05 nickel=21.21 dime=17.91 quarter=24.26 half-dollar=30.61 dollar=26.5\n'
+    +'Canada: 1c=19.05 5c=21.2 10c=18.03 25c=23.88 $1=26.5 $2=28.0\n'
+    +'Australia: 5c=19.41 10c=23.6 20c=28.52 50c=31.65 $1=25.0 $2=20.5\n'
+    +'Ireland (pre-euro): 1p=16.5 2p=20.3 5p=18.5 10p=22.0 50p=30.0\n'
+    +'Switzerland: 5c=17.15 10c=19.15 20c=21.05 50c=18.0 Fr1=23.2 Fr2=27.4 Fr5=31.45\n'
+    +'Japan: ¥1=20.0 ¥5=22.0 ¥10=23.5 ¥50=21.0 ¥100=22.6 ¥500=26.5\n'
+    +'China: ¥0.1=19.0 ¥0.5=20.5 ¥1=25.0\n'
+    +'India: 50p=19.0 ₹1=21.93 ₹2=23.0 ₹5=23.0 ₹10=27.0\n'
+    +'Brazil: 5c=17.0 10c=20.0 25c=23.0 50c=23.0 R$1=27.0\n'
+    +'Mexico: 10c=17.0 20c=19.0 50c=22.0 $1=21.0 $2=23.0 $5=25.5 $10=28.0\n'
+    +'South Africa: 5c=17.0 10c=16.0 20c=19.0 50c=22.0 R1=20.0 R2=23.0 R5=26.0\n'
+    +'Norway: 50øre=18.0 kr1=21.0 kr5=26.0 kr10=24.0 kr20=27.5\n'
+    +'Sweden: kr1=19.5 kr2=22.5 kr5=23.75 kr10=20.5\n'
+    +'Denmark: 50øre=21.5 kr1=20.25 kr2=23.35 kr5=28.5 kr10=23.35 kr20=27.0\n'
+    +'Poland: 1gr=15.5 2gr=17.5 5gr=19.5 10gr=16.5 20gr=18.84 50gr=20.0 zł1=23.0 zł2=21.5 zł5=24.0\n'
+    +'Türkiye: 1kr=17.0 5kr=17.0 10kr=20.0 25kr=23.0 50kr=26.0 ₺1=26.15\n'
+    +'UAE: 25f=20.0 50f=21.0 dh1=23.0\n'
+    +'Singapore: 5c=16.75 10c=18.5 20c=21.36 50c=22.4 $1=24.66\n'
+    +'If you can identify the coin but it is not listed, use your best knowledge of its size.\n'
+    +'If no coin is visible, estimate portions using contextual clues (plate size, cutlery, hand size if present).\n';
+
+  var prompt=coinRef
+    +'Analyse this food photo and identify every food item visible. Use any coin present as a size reference to calibrate portion estimates.\n\n'
+    +'For each food item, estimate the nutritional content for the visible portion/serving. Return ONLY a valid JSON array — no markdown, no explanation.\n\n'
+    +'Each object must have exactly these fields:\n'
+    +'{"name":"Food name with estimated portion e.g. Grilled chicken ~160g (€1 coin ref)","protein":number,"calories":number,"carbs":number,"fat":number,"confidence":"high"|"medium"|"low"}\n\n'
+    +'Rules:\n'
+    +'- If a coin is visible, name the coin type used in the item name e.g. "(quarter ref)" or "(€2 ref)"\n'
+    +'- confidence: high=coin-calibrated or packaged label visible, medium=estimated by eye with context clues, low=no reference and hard to judge\n'
+    +'- Round all numbers to 1 decimal place\n'
+    +'- If you cannot identify any food, return []\n'
+    +'- Return ONLY the JSON array, nothing else.';
   try {
     var body={prompt:prompt,images:[{data:S.scanImageBase64,mimeType:S.scanImageMime}]};
     var r=await fetch(GEMINI_WORKER_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
