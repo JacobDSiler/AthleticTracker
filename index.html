@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>💪 Nutrition Coach</title>
+<title>Fueld</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0f172a;color:#fff;font-family:system-ui,-apple-system,sans-serif;min-height:100vh}
@@ -147,8 +147,8 @@ body{background:#0f172a;color:#fff;font-family:system-ui,-apple-system,sans-seri
   <div class="header">
     <div class="header-top">
       <div>
-        <div class="header-title">💪 Nutrition Coach</div>
-        <div class="header-sub">Your personal muscle-building guide</div>
+        <div class="header-title">⚡ Fueld</div>
+        <div class="header-sub">Fuel your gains. Track every rep of nutrition.</div>
       </div>
       <div id="headerProtein" style="display:none;text-align:right">
         <div class="header-protein-num" id="headerProteinNum">0g</div>
@@ -423,7 +423,8 @@ function switchTab(t){
   var btns=document.querySelectorAll(".tab-btn");
   for(var i=0;i<btns.length;i++) btns[i].classList.remove("active");
   btns[tabs.indexOf(t)].classList.add("active");
-  if(t==="log"){ renderMealPills(); renderFoodList(QUICK_FOODS); }
+  if(t==="today"){ renderToday(); updateHeader(); }
+  if(t==="log"){ renderMealPills(); renderFoodList(S.searchResults.length?S.searchResults:QUICK_FOODS); }
   if(t==="coach") renderCoachContext();
   if(t==="notifs") renderNotifTab();
   if(t==="scan") renderScanMealPills();
@@ -635,7 +636,8 @@ function addFood(){
   var q=S.qty;
   S.log.push({name:f.name,source:f.source,protein:+(f.protein*q).toFixed(1),calories:+(f.calories*q).toFixed(0),carbs:+(f.carbs*q).toFixed(1),fat:+(f.fat*q).toFixed(1),id:Date.now(),meal:S.mealName});
   S.selectedFood=null; S.qty=1; el("foodSearch").value=""; el("searchClear").style.display="none"; el("searchStatusWrap").innerHTML=""; el("foodSelected").innerHTML="";
-  renderFoodList(QUICK_FOODS); updateHeader(); renderToday();
+  S.searchResults=[];
+  updateHeader(); switchTab("today");
 }
 
 // ── SMART SCAN ────────────────────────────────────────
@@ -749,14 +751,31 @@ function escHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
 
 // ── NOTIFICATIONS ─────────────────────────────────────
 function renderNotifTab(){
+  // Re-check live permission every time tab is visited
   var perm=("Notification" in window)?Notification.permission:"unsupported";
   var statusHtml="";
-  if(perm==="granted") statusHtml='<div class="notif-status granted">✅ Notifications allowed</div>';
-  else if(perm==="denied") statusHtml='<div class="notif-status denied">🚫 Blocked — enable in browser settings</div>';
-  else if(perm==="unsupported") statusHtml='<div class="notif-status denied">⚠️ Not supported on this browser</div>';
-  else statusHtml='<div class="notif-status default">Permission not yet granted</div>';
+  if(perm==="granted"){
+    statusHtml='<div class="notif-status granted">✅ Notifications allowed</div>';
+    // If master toggle is on but timers aren't running, reschedule
+    if(S.notifEnabled && S.notifTimers.length===0) rescheduleNotifs();
+  } else if(perm==="denied"){
+    statusHtml='<div class="notif-status denied">🚫 Blocked — see steps below</div>'
+      +'<div style="font-size:.72rem;color:#94a3b8;margin-top:8px;line-height:1.6;background:#0f172a;border-radius:8px;padding:8px 10px">'
+      +'<strong style="color:#fbbf24">To unblock on Android Chrome:</strong><br>'
+      +'1. Tap the 🔒 icon in the address bar<br>'
+      +'2. Tap <em>Site settings</em><br>'
+      +'3. Set <em>Notifications</em> to <strong>Allow</strong><br>'
+      +'4. Come back and toggle on again</div>';
+    // Force toggle off if blocked
+    if(S.notifEnabled){ S.notifEnabled=false; clearAllNotifTimers(); }
+  } else if(perm==="unsupported"){
+    statusHtml='<div class="notif-status denied">⚠️ Not supported on this browser</div>';
+  } else {
+    statusHtml='<div class="notif-status default">Tap the toggle to enable — you\'ll be asked to allow</div>';
+  }
   el("notifPermStatus").innerHTML=statusHtml;
   el("notifMasterToggle").checked=S.notifEnabled;
+  el("notifMasterToggle").disabled=(perm==="denied"||perm==="unsupported");
   el("notifMealList").style.display=S.notifEnabled?"":"none";
   renderNotifRows();
 }
@@ -785,17 +804,27 @@ function renderNotifRows(){
 }
 async function toggleNotifications(enabled){
   S.notifEnabled=enabled;
-  el("notifMealList").style.display=enabled?"":"none";
   if(enabled){
-    if(!("Notification" in window)){ alert("Notifications are not supported in this browser."); S.notifEnabled=false; el("notifMasterToggle").checked=false; return; }
+    if(!("Notification" in window)){
+      alert("Notifications are not supported in this browser.");
+      S.notifEnabled=false; el("notifMasterToggle").checked=false; renderNotifTab(); return;
+    }
+    if(Notification.permission==="denied"){
+      S.notifEnabled=false; el("notifMasterToggle").checked=false;
+      renderNotifTab(); return;
+    }
     if(Notification.permission==="default"){
       var perm=await Notification.requestPermission();
-      if(perm!=="granted"){ S.notifEnabled=false; el("notifMasterToggle").checked=false; el("notifMealList").style.display="none"; renderNotifTab(); return; }
+      if(perm!=="granted"){
+        S.notifEnabled=false; el("notifMasterToggle").checked=false;
+        renderNotifTab(); return;
+      }
     }
-    if(Notification.permission==="denied"){ S.notifEnabled=false; el("notifMasterToggle").checked=false; el("notifMealList").style.display="none"; alert("Notifications are blocked. Please allow them in your browser settings, then try again."); renderNotifTab(); return; }
+    el("notifMealList").style.display="";
     rescheduleNotifs();
   } else {
     clearAllNotifTimers();
+    el("notifMealList").style.display="none";
   }
   renderNotifTab();
 }
