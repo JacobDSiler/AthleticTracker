@@ -1,0 +1,13 @@
+{
+  "appId": "com.silertech.fueld",
+  "appName": "Fueld",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false, "backgroundColor": "#0f172a" },
+  "ios": { "contentInset": "always", "backgroundColor": "#0f172a", "preferredContentMode": "mobile" },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 1200, "backgroundColor": "#0f172a", "showSpinner": false },
+    "StatusBar": { "style": "DARK", "backgroundColor": "#0f172a", "overlaysWebView": false },
+    "LocalNotifications": { "smallIcon": "ic_stat_notify", "iconColor": "#f97316" }
+  }
+}

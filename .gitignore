@@ -1,0 +1,24 @@
+# local-only: logs, canary, pending commit message
+logs/
+deploy-tick.txt
+.pending-commit.txt
+# never commit secrets
+.secrets/
+.env
+.env.*
+tokens.json
+*service-account*.json
+*firebase-adminsdk*.json
+*.pem
+*.key
+*.keystore
+.netlify/
+node_modules/
+# native: platform projects are generated in CI by `cap add`, never committed
+native/node_modules/
+native/www/
+native/android/
+native/ios/
+native/resources/android/
+native/resources/ios/
+native/resources/*.xcassets

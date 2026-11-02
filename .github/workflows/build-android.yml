@@ -1,0 +1,145 @@
+name: Build Android
+
+# Triggered by the watcher's push to main (any app change), by a version tag (vX.Y.Z from release.cmd),
+# by hand, or by publishing a GitHub Release. The Android project is GENERATED here with `cap add android`
+# so nothing platform-specific lives in the repo.
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+    paths: ['index.html', 'fd-*.js', 'manifest.json', 'icon-*.png', 'apple-touch-icon.png', 'native/**', '.github/workflows/build-android.yml']
+  workflow_dispatch:
+    inputs:
+      upload_to_play:
+        description: 'Upload the signed AAB to Google Play after building'
+        type: boolean
+        default: false
+      track:
+        description: 'Play track (internal / alpha / beta / production)'
+        type: string
+        default: 'internal'
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # `secrets` can't be used in step-level `if:`, so expose "is it set?" flags at job level.
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      HAS_PLAY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Engine tests
+        run: node --test test/engine.test.mjs
+
+      - name: Work out version
+        id: ver
+        run: |
+          PKG=$(node -p "require('./native/package.json').version")
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then NAME="${GITHUB_REF_NAME#v}"; else NAME="$PKG"; fi
+          # versionCode must rise on every upload; the run number always does.
+          CODE=$((GITHUB_RUN_NUMBER + 100))
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"; echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "Version $NAME ($CODE)"
+
+      - name: Install, build web bundle, generate Android project
+        working-directory: native
+        env:
+          VERSION_NAME: ${{ steps.ver.outputs.name }}
+          VERSION_CODE: ${{ steps.ver.outputs.code }}
+        run: |
+          npm ci
+          npm run build:www
+          npx cap add android
+          npx capacitor-assets generate --android
+          node scripts/patch-android.mjs
+          npx cap sync android
+
+      - name: Decode release keystore (optional)
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_B64" | base64 -d > native/android/app/release.keystore
+
+      - name: Build debug APK (installable on any phone)
+        working-directory: native/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Build signed release APK + AAB (Play Store)
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: native/android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
+
+      - name: Rename outputs
+        run: |
+          mkdir -p out
+          cp native/android/app/build/outputs/apk/debug/app-debug.apk out/Fueld-debug.apk
+          [ -f native/android/app/build/outputs/apk/release/app-release.apk ] && cp native/android/app/build/outputs/apk/release/app-release.apk out/Fueld-release.apk || true
+          [ -f native/android/app/build/outputs/bundle/release/app-release.aab ] && cp native/android/app/build/outputs/bundle/release/app-release.aab out/Fueld-release.aab || true
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Fueld-android
+          path: out/*
+          retention-days: 30
+
+      # Upload to Google Play only when a signed AAB exists AND one of: manual run with the box ticked,
+      # a version tag / published release, or the repo variable PLAY_AUTO_UPLOAD is "true".
+      - name: Decide whether to upload to Google Play
+        id: play
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          DISPATCH_UPLOAD: ${{ inputs.upload_to_play }}
+          AUTO: ${{ vars.PLAY_AUTO_UPLOAD }}
+        run: |
+          UP=false
+          if [ "$HAS_PLAY" = "true" ] && [ -f out/Fueld-release.aab ]; then
+            if [ "$EVENT" = "workflow_dispatch" ]; then UP="$DISPATCH_UPLOAD"
+            elif [ "$EVENT" = "release" ] || [ "$REF_TYPE" = "tag" ]; then UP=true
+            elif [ "$AUTO" = "true" ]; then UP=true; fi
+          fi
+          echo "upload=$UP" >> "$GITHUB_OUTPUT"
+          echo "Upload to Google Play: $UP"
+
+      - name: Upload AAB to Google Play
+        if: steps.play.outputs.upload == 'true'
+        env:
+          PLAY_SA_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          PLAY_TRACK: ${{ inputs.track || vars.PLAY_TRACK || 'internal' }}
+          PLAY_STATUS: ${{ vars.PLAY_STATUS || 'completed' }}
+        run: node native/scripts/play-upload.mjs out/Fueld-release.aab --notes "$(git log -1 --pretty=%s)"
+
+      - name: Attach to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*

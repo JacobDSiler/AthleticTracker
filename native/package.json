@@ -1,0 +1,27 @@
+{
+  "name": "fueld-native",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Native Android/iOS shell for Fueld (Capacitor). Platform projects are generated in CI.",
+  "scripts": {
+    "build:www": "node scripts/build-www.mjs",
+    "add:android": "npx cap add android && node scripts/patch-android.mjs",
+    "add:ios": "npx cap add ios",
+    "assets": "npx capacitor-assets generate --android --ios",
+    "sync": "npm run build:www && npx cap sync"
+  },
+  "dependencies": {
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/share": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/ios": "^8.5.1"
+  }
+}

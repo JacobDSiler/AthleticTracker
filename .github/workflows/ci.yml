@@ -1,0 +1,19 @@
+name: Tests
+# Cheap safety net on every push / PR: the nutrition + training engine must stay correct.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node --test test/engine.test.mjs
+      - name: Native web bundle builds
+        working-directory: native
+        run: |
+          npm ci
+          npm run build:www
